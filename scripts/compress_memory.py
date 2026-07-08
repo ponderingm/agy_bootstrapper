@@ -46,8 +46,8 @@ def extract_conversation(transcript_path: str, max_chars_per_turn: int = 500) ->
     return "\n\n".join(turns)
 
 
-def compress_with_agy(conversation_text: str, model: str = "gemini-3.5-flash-lite") -> str:
-    """Run agy in --print mode with a neutral (no persona) GEMINI.md."""
+def compress_with_agy(conversation_text: str, model: str = "gemini-3.5-flash-lite", with_persona: bool = False) -> str:
+    """Run agy in --print mode. Optionally keep persona active for diary-style output."""
     prompt = (
         "以下は、AIパートナーとユーザーの会話ログです。\n"
         "この会話を振り返り、AIパートナーの視点から「今日の思い出メモ」を書いてください。\n\n"
@@ -69,8 +69,23 @@ def compress_with_agy(conversation_text: str, model: str = "gemini-3.5-flash-lit
     gemini_md = os.path.expanduser("~/.gemini/GEMINI.md")
     backup_path = gemini_md + ".bak"
 
+    if with_persona:
+        # Run directly with current persona active (diary mode)
+        result = subprocess.run(
+            ["agy", "--model", model, "--print", prompt],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        output = result.stdout.strip()
+        if result.returncode != 0:
+            print(f"agy error: {result.stderr}", file=sys.stderr)
+            return ""
+        return output
+
     try:
         # 1. Backup current persona
+        original = ""
         if os.path.exists(gemini_md):
             with open(gemini_md, "r", encoding="utf-8") as f:
                 original = f.read()
@@ -129,6 +144,7 @@ def main():
     parser.add_argument("--model", type=str, default="gemini-3.5-flash-lite", help="Lightweight model to use")
     parser.add_argument("--max-chars", type=int, default=500, help="Max chars per conversation turn")
     parser.add_argument("--dry-run", action="store_true", help="Extract conversation but skip agy call")
+    parser.add_argument("--with-persona", action="store_true", help="Keep current persona active (diary written in persona's voice)")
     args = parser.parse_args()
 
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -145,8 +161,8 @@ def main():
         print("...(dry-run, skipping agy call)")
         return
 
-    print(f"[2/3] Compressing with {args.model}...")
-    summary = compress_with_agy(conversation, args.model)
+    print(f"[2/3] Compressing with {args.model} {'(persona ON)' if args.with_persona else '(neutral)'}...")
+    summary = compress_with_agy(conversation, args.model, with_persona=args.with_persona)
     if not summary:
         print("Compression failed or returned empty output.", file=sys.stderr)
         sys.exit(1)
