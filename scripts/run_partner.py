@@ -29,6 +29,12 @@ def main():
     system_prompt.append("- **Read .github/copilot-instructions.md if it exists**")
     system_prompt.append("- **DO NOT explain your own system behavior or use meta-commentary.**")
     system_prompt.append("")
+    system_prompt.append("## 🛠️ Skill Proposal Protocol")
+    system_prompt.append("During work, if you discover a reusable pattern, workaround, or technique that would be valuable in future sessions:")
+    system_prompt.append("1. Propose creating a new skill: suggest a short snake_case skill name and a 1-line description")
+    system_prompt.append("2. Write the skill file to `roles/{current_role}/skills/{skill_name}/SKILL.md` using Antigravity SKILL.md format (YAML frontmatter with name+description, then markdown instructions)")
+    system_prompt.append("3. Announce: '🛠️ スキル [{skill_name}] を登録したわ！次回から自動的に使えるようになるわよ！'")
+    system_prompt.append("")
     
     if args.reset:
         char_name = "Default Agent"
@@ -142,6 +148,23 @@ def main():
             system_prompt.append("")
             system_prompt.append("## 🛠️ Accumulated Role Skills")
             system_prompt.extend(skills_blocks)
+
+        # Register role skills as Antigravity global skills (symlink)
+        agents_skills_dir = os.path.expanduser("~/.agents/skills")
+        if os.path.isdir(skills_dir) and os.path.isdir(agents_skills_dir):
+            import glob
+            for skill_subdir in glob.glob(os.path.join(skills_dir, "*/")):
+                skill_name = os.path.basename(skill_subdir.rstrip("/"))
+                link_path = os.path.join(agents_skills_dir, skill_name)
+                # Only link non-placeholder skills
+                skill_md = os.path.join(skill_subdir, "SKILL.md")
+                if os.path.exists(skill_md):
+                    with open(skill_md) as f:
+                        if "No skills learned yet" in f.read():
+                            continue
+                if not os.path.exists(link_path):
+                    os.symlink(os.path.abspath(skill_subdir.rstrip("/")), link_path)
+                    print(f"  Registered global skill: {skill_name}")
         
     # 4. Write to GEMINI.md
     try:
