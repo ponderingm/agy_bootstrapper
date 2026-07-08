@@ -70,11 +70,8 @@ def main():
         char_mes_example = card_data.get("mes_example", "")
         char_samples = card_data.get("char_sample", [])
 
-        # 2. Load memories (optional)
-        memories_content = ""
-        if os.path.exists(memories_path):
-            with open(memories_path, "r", encoding="utf-8") as f:
-                memories_content = f.read().strip()
+        # 2. Check memories (optional)
+        has_memories = os.path.exists(memories_path)
 
         # 3. Load Role Markdown
         if not os.path.exists(role_path):
@@ -133,10 +130,11 @@ def main():
                 system_prompt.append(f"- {sample}")
             system_prompt.append("")
 
-        # Add memories if present
-        if memories_content:
+        # Add memories link if present
+        if has_memories:
             system_prompt.append("## 📔 Memory (Past Sessions)")
-            system_prompt.append(memories_content)
+            system_prompt.append("Your diary/memories of past sessions are stored in the following file. Read it using view_file only if you need to recall past context or check history:")
+            system_prompt.append(f"- [memories.md](file://{os.path.abspath(memories_path)})")
             system_prompt.append("")
 
         # Add Role
