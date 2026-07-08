@@ -1,5 +1,5 @@
 ---
-name: placeholder
+name: assigner_general
 description: Skills and learned patterns accumulated for this role.
 ---
 

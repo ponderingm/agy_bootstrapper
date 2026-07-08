@@ -82,14 +82,18 @@ def main():
             print(f"Error loading role MD: {e}", file=sys.stderr)
             sys.exit(1)
 
-        # 4. Load role skills (optional)
-        skills_content = ""
-        if os.path.exists(skills_path):
-            with open(skills_path, "r", encoding="utf-8") as f:
-                raw = f.read().strip()
+        # 4. Load role skills - scan all skills/*/SKILL.md (Antigravity skill format)
+        skills_blocks = []
+        skills_dir = os.path.join(role_dir, "skills")
+        if os.path.isdir(skills_dir):
+            import glob
+            for skill_md in sorted(glob.glob(os.path.join(skills_dir, "*/SKILL.md"))):
+                with open(skill_md, "r", encoding="utf-8") as f:
+                    raw = f.read().strip()
                 # Skip placeholder skill files
                 if "No skills learned yet" not in raw:
-                    skills_content = raw
+                    skill_name = os.path.basename(os.path.dirname(skill_md))
+                    skills_blocks.append(f"### {skill_name}\n{raw}")
 
         # Add Persona
         system_prompt.append(f"# 🎭 PERSONA: {char_name}")
@@ -133,11 +137,11 @@ def main():
         system_prompt.append(role_content)
         role_name = args.role
 
-        # Add role skills if present
-        if skills_content:
+        # Add role skills if any were loaded
+        if skills_blocks:
             system_prompt.append("")
             system_prompt.append("## 🛠️ Accumulated Role Skills")
-            system_prompt.append(skills_content)
+            system_prompt.extend(skills_blocks)
         
     # 4. Write to GEMINI.md
     try:

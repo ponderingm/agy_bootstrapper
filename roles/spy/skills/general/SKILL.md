@@ -1,5 +1,5 @@
 ---
-name: placeholder
+name: spy_general
 description: Skills and learned patterns accumulated for this role.
 ---
 
