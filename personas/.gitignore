@@ -1,0 +1,6 @@
+# Ignore all character cards in this directory by default
+*
+
+# Do not ignore gitignore itself and the public sample card
+!.gitignore
+!sample.json

@@ -1,0 +1,18 @@
+# Python logs & caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment configurations
+.env
+.venv
+venv/
+ENV/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Test profiles & temporary output files
+GEMINI_test.md
