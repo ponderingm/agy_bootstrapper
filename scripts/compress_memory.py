@@ -151,9 +151,9 @@ def compress_with_agy(conversation_text: str, model: str = "gemini-3.5-flash-lit
 
 def save_memory(summary: str, persona: str, base_dir: str) -> str:
     """Append timestamped summary to persona memory file."""
-    memory_dir = os.path.join(base_dir, "personas", "memories")
+    memory_dir = os.path.join(base_dir, "personas", persona)
     os.makedirs(memory_dir, exist_ok=True)
-    memory_path = os.path.join(memory_dir, f"{persona}_memories.md")
+    memory_path = os.path.join(memory_dir, "memories.md")
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     entry = f"\n## {timestamp}\n{summary}\n"

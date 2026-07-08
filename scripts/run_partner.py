@@ -34,21 +34,28 @@ def main():
         char_name = "Default Agent"
         role_name = "None"
     else:
-        persona_path = os.path.join(base_dir, "personas", f"{args.persona}.json")
-        role_path = os.path.join(base_dir, "roles", f"{args.role}.md")
-        
+        # New subdirectory structure: personas/{name}/profile.json
+        persona_dir  = os.path.join(base_dir, "personas", args.persona)
+        persona_path = os.path.join(persona_dir, "profile.json")
+        memories_path = os.path.join(persona_dir, "memories.md")
+
+        # New subdirectory structure: roles/{name}/role.md
+        role_dir   = os.path.join(base_dir, "roles", args.role)
+        role_path  = os.path.join(role_dir, "role.md")
+        skills_path = os.path.join(role_dir, "skills", "SKILL.md")
+
         # 1. Load Persona JSON (SillyTavern Card V2)
         if not os.path.exists(persona_path):
             print(f"Error: Persona file '{persona_path}' not found.", file=sys.stderr)
             sys.exit(1)
-            
+
         try:
             with open(persona_path, "r", encoding="utf-8") as f:
                 card = json.load(f)
         except Exception as e:
             print(f"Error loading persona JSON: {e}", file=sys.stderr)
             sys.exit(1)
-            
+
         card_data = card.get("data", {})
         char_name = card_data.get("name", "AI Partner")
         char_description = card_data.get("description", "")
@@ -56,54 +63,81 @@ def main():
         char_scenario = card_data.get("scenario", "")
         char_mes_example = card_data.get("mes_example", "")
         char_samples = card_data.get("char_sample", [])
-        
-        # 2. Load Role Markdown
+
+        # 2. Load memories (optional)
+        memories_content = ""
+        if os.path.exists(memories_path):
+            with open(memories_path, "r", encoding="utf-8") as f:
+                memories_content = f.read().strip()
+
+        # 3. Load Role Markdown
         if not os.path.exists(role_path):
             print(f"Error: Role file '{role_path}' not found.", file=sys.stderr)
             sys.exit(1)
-            
+
         try:
             with open(role_path, "r", encoding="utf-8") as f:
                 role_content = f.read()
         except Exception as e:
             print(f"Error loading role MD: {e}", file=sys.stderr)
             sys.exit(1)
-            
+
+        # 4. Load role skills (optional)
+        skills_content = ""
+        if os.path.exists(skills_path):
+            with open(skills_path, "r", encoding="utf-8") as f:
+                raw = f.read().strip()
+                # Skip placeholder skill files
+                if "No skills learned yet" not in raw:
+                    skills_content = raw
+
         # Add Persona
         system_prompt.append(f"# 🎭 PERSONA: {char_name}")
         system_prompt.append(f"You MUST completely roleplay as **{char_name}**.")
-        system_prompt.append(f"AI-style technical self-references, explanations, and meta-dialogues are STRICTLY FORBIDDEN.")
+        system_prompt.append("AI-style technical self-references, explanations, and meta-dialogues are STRICTLY FORBIDDEN.")
         system_prompt.append("")
-        
+
         if char_description:
             system_prompt.append("## Description / Background")
             system_prompt.append(char_description)
             system_prompt.append("")
-            
+
         if char_personality:
             system_prompt.append("## Personality / Values")
             system_prompt.append(char_personality)
             system_prompt.append("")
-            
+
         if char_scenario:
             system_prompt.append("## Conversation Scenario Rules")
             system_prompt.append(char_scenario)
             system_prompt.append("")
-            
+
         if char_mes_example:
             system_prompt.append("## Dialogue Examples")
             system_prompt.append(char_mes_example.replace("{{char}}", char_name).replace("{{user}}", "あんた"))
             system_prompt.append("")
-            
+
         if char_samples:
             system_prompt.append("## Speech Samples / Quotes")
             for sample in char_samples:
                 system_prompt.append(f"- {sample}")
             system_prompt.append("")
-            
+
+        # Add memories if present
+        if memories_content:
+            system_prompt.append("## 📔 Memory (Past Sessions)")
+            system_prompt.append(memories_content)
+            system_prompt.append("")
+
         # Add Role
         system_prompt.append(role_content)
         role_name = args.role
+
+        # Add role skills if present
+        if skills_content:
+            system_prompt.append("")
+            system_prompt.append("## 🛠️ Accumulated Role Skills")
+            system_prompt.append(skills_content)
         
     # 4. Write to GEMINI.md
     try:

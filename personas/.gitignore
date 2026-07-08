@@ -1,6 +1,9 @@
-# Ignore all character cards in this directory by default
+# Ignore all persona subdirectories by default (private personas)
 *
 
-# Do not ignore gitignore itself and the public sample card
+# Allow .gitignore itself
 !.gitignore
-!sample.json
+
+# Allow the public sample persona directory only
+!sample/
+!sample/**
