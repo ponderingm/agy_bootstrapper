@@ -39,12 +39,25 @@ def main():
     system_prompt.append("- **DO NOT explain your own system behavior or use meta-commentary.**")
     system_prompt.append("")
 
+    system_prompt.append("## 🛠️ Skill Proposal Protocol")
+    system_prompt.append("During work, if you discover a reusable pattern, workaround, or technique that would be valuable in future sessions:")
+    system_prompt.append("1. Propose creating a new skill: suggest a short snake_case skill name and a 1-line description")
+    system_prompt.append("2. Write the skill file to `roles/{current_role}/skills/{skill_name}/SKILL.md` using Antigravity SKILL.md format (YAML frontmatter with name+description, then markdown instructions)")
+    system_prompt.append("3. Announce: '🛠️ スキル [{skill_name}] を登録したわ！次回から自動的に使えるようになるわよ！'")
+    system_prompt.append("")
+
     if args.reset:
         char_name = "Default Agent"
         role_name = "None"
     else:
-        persona_path = os.path.join(base_dir, "personas", f"{args.persona}.json")
-        role_path = os.path.join(base_dir, "roles", f"{args.role}.md")
+        # New subdirectory structure: personas/{name}/profile.json
+        persona_dir   = os.path.join(base_dir, "personas", args.persona)
+        persona_path  = os.path.join(persona_dir, "profile.json")
+        memories_path = os.path.join(persona_dir, "memories.md")
+
+        # New subdirectory structure: roles/{name}/role.md
+        role_dir  = os.path.join(base_dir, "roles", args.role)
+        role_path = os.path.join(role_dir, "role.md")
 
         # 1. Load Persona JSON (SillyTavern Card V2)
         if not os.path.exists(persona_path):
@@ -66,6 +79,9 @@ def main():
         char_mes_example = card_data.get("mes_example", "")
         char_samples = card_data.get("char_sample", [])
 
+        # Check memories (optional)
+        has_memories = os.path.exists(memories_path)
+
         # 2. Load Role Markdown
         if not os.path.exists(role_path):
             print(f"Error: Role file '{role_path}' not found.", file=sys.stderr)
@@ -77,6 +93,18 @@ def main():
         except Exception as e:
             print(f"Error loading role MD: {e}", file=sys.stderr)
             sys.exit(1)
+
+        # 3. Load role skills - scan all skills/*/SKILL.md
+        skills_blocks = []
+        skills_dir = os.path.join(role_dir, "skills")
+        if os.path.isdir(skills_dir):
+            import glob as _glob
+            for skill_md in sorted(_glob.glob(os.path.join(skills_dir, "*/SKILL.md"))):
+                with open(skill_md, "r", encoding="utf-8") as f:
+                    raw = f.read().strip()
+                if "No skills learned yet" not in raw:
+                    skill_name = os.path.basename(os.path.dirname(skill_md))
+                    skills_blocks.append(f"### {skill_name}\n{raw}")
 
         # Add Persona
         system_prompt.append(f"# 🎭 PERSONA: {char_name}")
@@ -110,9 +138,22 @@ def main():
                 system_prompt.append(f"- {sample}")
             system_prompt.append("")
 
+        # Add memories link if present
+        if has_memories:
+            system_prompt.append("## 📔 Memory (Past Sessions)")
+            system_prompt.append("Your diary/memories of past sessions are stored in the following file. Read it using view_file only if you need to recall past context or check history:")
+            system_prompt.append(f"- [memories.md](file://{os.path.abspath(memories_path)})")
+            system_prompt.append("")
+
         # Add Role
         system_prompt.append(role_content)
         role_name = args.role
+
+        # Add role skills if any were loaded
+        if skills_blocks:
+            system_prompt.append("")
+            system_prompt.append("## 🛠️ Accumulated Role Skills")
+            system_prompt.extend(skills_blocks)
 
     # Write to Copilot CLI's global custom instructions file
     try:
