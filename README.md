@@ -13,9 +13,11 @@ agy_bootstrapper/
 ├── roles/               # AIエージェントの役割定義 Markdown
 │   └── programmer.md    # プログラミングパートナー
 ├── scripts/
-│   └── run_partner.py   # 起動合成スクリプト (引数でYOLOモード制御可能)
-├── install.sh           # 自動環境設定スクリプト
-└── README.md            # 本ファイル
+│   ├── run_partner.py          # 起動合成スクリプト (Antigravity CLI / agy 用, 引数でYOLOモード制御可能)
+│   └── run_partner_copilot.py  # 起動合成スクリプト (GitHub Copilot CLI 用)
+├── install.sh            # 自動環境設定スクリプト (Antigravity CLI / agy 用)
+├── install_copilot.sh    # 自動環境設定スクリプト (GitHub Copilot CLI 用)
+└── README.md              # 本ファイル
 ```
 
 ---
@@ -74,3 +76,45 @@ agyp rinko creative -c
 
 * デフォルトで `personas/` 直下のすべての JSON は無視されます。
 * 例外的に公開用の `sample.json` のみ追跡されるようになっています。
+
+---
+
+## 🤖 GitHub Copilot CLI 版
+
+Antigravity CLI (`agy`) の代わりに [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli) (`copilot`) を起動ランチャーとして使いたい場合は、Copilot 用のインストーラーとスクリプトを使用してください。
+
+```text
+agy_bootstrapper/
+├── install_copilot.sh              # Copilot CLI 用の自動環境設定スクリプト
+└── scripts/
+    └── run_partner_copilot.py      # Copilot CLI 用の起動合成スクリプト
+```
+
+Copilot CLI は `--yolo` と `--continue` を標準でサポートしているため、`agy` 版のような専用ラッパーオプションは不要です。また、生成した人格プロンプトは `.gemini/GEMINI.md` の代わりに Copilot CLI がグローバルに参照する `$HOME/.copilot/copilot-instructions.md` に書き出されます（Copilot は `.github/copilot-instructions.md` などリポジトリ側の指示ファイルも自動で併せて読み込みます）。
+
+### インストール方法
+
+```bash
+./install_copilot.sh
+# または
+./install_copilot.sh --yolo      # YOLOモード（権限確認を自動許可）を既定にする
+./install_copilot.sh --no-yolo   # スタンダードモード（毎回権限確認を表示）にする
+```
+
+インストール後は `source ~/.bashrc` を実行して反映してください。
+
+### ショートカットコマンド
+
+| コマンド | モード | 説明 |
+| :--- | :--- | :--- |
+| `copsample` | 新規セッション | 「sample ペルソナ ＋ プログラマー」で Copilot CLI の新規対話を開始します。 |
+| `copsamplec` | セッション継続 | 前回の会話履歴を継続した状態で Copilot CLI を起動します（`copilot --continue`）。 |
+| `copreset` | 初期化 | Copilot CLI 用の指示ファイルを初期化し、通常のエージェント状態に戻します。 |
+| `copp [P] [R] [options]` | 自由設定 | 任意のペルソナ[P]とロール[R]を指定して Copilot CLI を起動します。（引数省略時は sample / programmer） |
+
+```bash
+# 凜子ペルソナを小説執筆（creative）ロール、かつセッション継続モードで起動
+copp rinko creative -c
+```
+
+`agy` 版と `copilot` 版はエイリアス名（`agy*` / `cop*`）や指示ファイルの出力先が異なるため、両方を同じ環境に共存してインストールできます。
