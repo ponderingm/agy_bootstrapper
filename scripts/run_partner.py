@@ -15,6 +15,8 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime
+from socket import gethostname
 
 ENGINES = {
     "agy": {
@@ -42,6 +44,66 @@ ENGINES = {
         "global_skills_dir": "~/.claude/skills",
     },
 }
+
+def _find_git_root(path):
+    """Walk up from `path` to the nearest git working tree root, or None."""
+    current = os.path.realpath(path)
+    if not os.path.isdir(current):
+        current = os.path.dirname(current)
+    while True:
+        if os.path.isdir(os.path.join(current, ".git")):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            return None
+        current = parent
+
+
+def _collect_profile_git_roots(base_dir, *candidate_dirs):
+    """Find distinct git roots for persona/role dirs symlinked outside base_dir.
+
+    This is how a private profiles repo (e.g. personas/<name> symlinked in from
+    a separate clone) gets detected for syncing, without any explicit config.
+    """
+    base_git_root = _find_git_root(base_dir)
+    roots = []
+    for d in candidate_dirs:
+        if not os.path.exists(d):
+            continue
+        root = _find_git_root(d)
+        if root and root != base_git_root and root not in roots:
+            roots.append(root)
+    return roots
+
+
+def _run_git(repo_root, *args):
+    return subprocess.run(
+        ["git", "-C", repo_root, *args], capture_output=True, text=True, check=False
+    )
+
+
+def _pull_profile_repos(git_roots):
+    for root in git_roots:
+        print(f"[sync] pulling latest profile state: {root}")
+        result = _run_git(root, "pull", "--rebase", "--autostash")
+        if result.returncode != 0:
+            print(f"[sync] warning: pull failed for {root}:\n{result.stderr}", file=sys.stderr)
+
+
+def _push_profile_repos(git_roots):
+    for root in git_roots:
+        status = _run_git(root, "status", "--porcelain")
+        if not status.stdout.strip():
+            print(f"[sync] no changes to sync: {root}")
+            continue
+        print(f"[sync] pushing profile updates: {root}")
+        _run_git(root, "add", "-A")
+        commit_message = f"sync: {gethostname()} {datetime.now():%Y-%m-%d %H:%M:%S}"
+        _run_git(root, "commit", "-m", commit_message)
+        push_result = _run_git(root, "push")
+        if push_result.returncode != 0:
+            print(f"[sync] warning: push failed for {root}:\n{push_result.stderr}", file=sys.stderr)
+
 
 def main():
     parser = argparse.ArgumentParser(description="Unified AI Partner Bootstrapper (agy / copilot / claude)")
@@ -80,6 +142,8 @@ def main():
     system_prompt.append("3. Announce: '🛠️ スキル [{skill_name}] を登録したわ！次回から自動的に使えるようになるわよ！'")
     system_prompt.append("")
 
+    profile_git_roots = []
+
     if args.reset:
         char_name = "Default Agent"
         role_name = "None"
@@ -92,6 +156,12 @@ def main():
         # Subdirectory structure: roles/{name}/role.md
         role_dir   = os.path.join(base_dir, "roles", args.role)
         role_path  = os.path.join(role_dir, "role.md")
+
+        # If persona/role are symlinked in from a private profiles repo
+        # (e.g. via `install.sh --profiles-repo=...`), pull the latest state
+        # before reading anything, so memories.md etc. reflect other machines.
+        profile_git_roots = _collect_profile_git_roots(base_dir, persona_dir, role_dir)
+        _pull_profile_repos(profile_git_roots)
 
         # 1. Load Persona JSON (SillyTavern Card V2)
         if not os.path.exists(persona_path):
@@ -235,6 +305,10 @@ def main():
         print("\nSession ended by user.")
     except Exception as e:
         print(f"Error launching {engine['command']}: {e}", file=sys.stderr)
+    finally:
+        # Push profile updates (e.g. memories.md) regardless of how the session ended,
+        # so other machines see the latest state next time they pull.
+        _push_profile_repos(profile_git_roots)
 
 if __name__ == "__main__":
     main()

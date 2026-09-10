@@ -58,6 +58,9 @@ agy_bootstrapper/
 
 # 全エンジン
 ./install.sh --engine=all --yolo
+
+# 非公開の profiles リポジトリも一緒にセットアップする場合
+./install.sh --engine=claude,copilot --no-yolo --profiles-repo=<owner>/<repo>
 ```
 
 インストール完了後、以下のコマンドで反映させます。
@@ -105,3 +108,51 @@ python3 scripts/run_partner.py --persona sample --role programmer --dry-run  # �
 
 * `personas/` 配下はデフォルトですべて無視され、公開用の `sample/` のみ追跡されます。
 * `roles/` 配下の `private_` 接頭辞のロールディレクトリ（例: `roles/private_xxx/`）は無視されます。
+
+## 🔄 非公開プロファイル（複数マシン間の同期）
+
+`personas/` / `roles/` は `.gitignore` で守られている分、本命データはどのマシンにも
+自動では同期されません。これを解決するには、本命データだけを持つ**別の private
+リポジトリ**（以下「profiles リポジトリ」）を用意し、このリポジトリに読み込ませます。
+
+### profiles リポジトリの構造
+
+agy_bootstrapper と同じディレクトリ構造をそのまま踏襲してください。
+
+```
+<profiles-repo>/
+├── personas/
+│   └── <persona-name>/
+│       ├── profile.json
+│       ├── memories.md
+│       └── status.json
+└── roles/
+    └── private_<role-name>/
+        └── role.md
+```
+
+### セットアップ
+
+```bash
+./install.sh --engine=claude,copilot --no-yolo --profiles-repo=<owner>/<repo>
+```
+
+`gh` (GitHub CLI) で認証済みであれば、`install.sh` が profiles リポジトリを
+`.profiles/` に clone し、その中の `personas/<name>` と `roles/<name>` を
+`personas/` / `roles/` へシンボリックリンクします（`.profiles/` は
+`.gitignore` 済みなので本体には一切コミットされません）。
+
+### 自動同期の仕組み
+
+一度リンクしてしまえば、あとは追加の設定なしで `run_partner.py`（＝各種
+`<prefix>p` エイリアス含む）が自動で面倒を見ます。
+
+* セッション開始前: 対象の persona/role がリンクしているgitリポジトリを検出し、`git pull --rebase --autostash`
+* セッション終了後: 変更があれば `git add -A && git commit && git push`
+
+検出はシンボリックリンクの参照先が agy_bootstrapper 自身とは別のgitリポジトリかどうかで
+自動判定するため、profiles リポジトリの名前などをどこかに設定し直す必要はありません。
+
+`git pull --rebase` がコンフリクトした場合は自動解決しません。profiles リポジトリの
+ディレクトリで手動解決してから再度セッションを起動してください（個人利用中心で
+同時編集の頻度が低いことを前提にした、意図的な割り切りです）。
