@@ -1,3 +1,6 @@
 # Ignore private (non-public) role definitions by convention
 # Any role directory prefixed with "private_" will never be committed
 private_*/
+
+# Local custom skills are private by default
+*/skills/*

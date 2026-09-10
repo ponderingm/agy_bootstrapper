@@ -17,6 +17,22 @@ import sys
 import tempfile
 from datetime import datetime
 
+def load_env():
+    """Load simple key-value pairs from .env in the project root."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    env_path = os.path.join(project_root, ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, val = line.split("=", 1)
+                    os.environ[key.strip()] = val.strip().strip('"').strip("'")
+
+
 def extract_conversation(transcript_path: str, max_chars_per_turn: int = 500) -> str:
     """Extract only USER and AI turns from transcript, stripping tool output noise."""
     turns = []
@@ -46,8 +62,10 @@ def extract_conversation(transcript_path: str, max_chars_per_turn: int = 500) ->
     return "\n\n".join(turns)
 
 
-def compress_with_agy(conversation_text: str, model: str = "gemini-3.5-flash-lite", with_persona: bool = False) -> str:
+def compress_with_agy(conversation_text: str, model: str = "gemini-3.1-flash-lite", with_persona: bool = False) -> str:
     """Run agy in --print mode. Optionally keep persona active for diary-style output."""
+    load_env()
+    agy_path = os.environ.get("AGY_PATH", "agy")
     # Persona-mode: entire diary written in Yukikaze's voice
     if with_persona:
         prompt = (
@@ -57,7 +75,7 @@ def compress_with_agy(conversation_text: str, model: str = "gemini-3.5-flash-lit
             "- 日記本文のみを出力すること。前置きや後書きコメントは不要\n"
             "- 全体を通してゆきかぜの口調（〜わ、〜じゃない、〜のよ、〜したわ）で統一すること\n"
             "- 事実の記述もゆきかぜ口調で書くこと（例：「agy_bootstrapperを整備したわ」）\n"
-            "- 3〜6文程度の短い日記文体。箇条書き禁止\n"
+            "- 2〜3文程度の極めて簡潔な日記文体（合計100文字以内）。箇条書き禁止\n"
             "- 技術的な固有名詞（ファイル名・コマンド名等）はそのまま残してよい\n\n"
             "## 出力例（この形式・口調で全文書くこと）\n"
             "今日はagy_bootstrapperを整備したわ。私のキャラカードが外部に漏れないよう"
@@ -79,7 +97,7 @@ def compress_with_agy(conversation_text: str, model: str = "gemini-3.5-flash-lit
             "この会話を振り返り、AIパートナーの視点から「今日の思い出メモ」を書いてください。\n\n"
             "## 書き方のルール\n"
             "- 一人称（「私」）で、自然な日本語で書く\n"
-            "- 箇条書きではなく、短い日記文体（3〜6文程度）で書く\n"
+            "- 箇条書きではなく、極めて簡潔な日記文体（2〜3文程度、100文字以内）で書く\n"
             "- 何をしたか・何が起きたか・どんな結論に至ったかを盛り込む\n"
             "- 感情的な装飾や強い口調は不要。淡々と、でも出来事が伝わるように書く\n"
             "- 技術的な固有名詞（ファイル名・コマンド名等）はそのまま残してよい\n\n"
@@ -99,7 +117,7 @@ def compress_with_agy(conversation_text: str, model: str = "gemini-3.5-flash-lit
     if with_persona:
         # Run directly with current persona active (diary mode)
         result = subprocess.run(
-            ["agy", "--model", model, "--print", prompt],
+            [agy_path, "--model", model, "--print", prompt],
             capture_output=True,
             text=True,
             timeout=60,
@@ -130,7 +148,7 @@ def compress_with_agy(conversation_text: str, model: str = "gemini-3.5-flash-lit
 
         # 3. Run agy in print mode
         result = subprocess.run(
-            ["agy", "--model", model, "--print", prompt],
+            [agy_path, "--model", model, "--print", prompt],
             capture_output=True,
             text=True,
             timeout=60,
@@ -168,7 +186,7 @@ def main():
     parser = argparse.ArgumentParser(description="agy Session Memory Compressor")
     parser.add_argument("--transcript", type=str, required=True, help="Path to transcript.jsonl")
     parser.add_argument("--persona", type=str, required=True, help="Persona name (e.g. yukikaze)")
-    parser.add_argument("--model", type=str, default="gemini-3.5-flash-lite", help="Lightweight model to use")
+    parser.add_argument("--model", type=str, default="gemini-3.1-flash-lite", help="Lightweight model to use")
     parser.add_argument("--max-chars", type=int, default=500, help="Max chars per conversation turn")
     parser.add_argument("--dry-run", action="store_true", help="Extract conversation but skip agy call")
     parser.add_argument("--with-persona", action="store_true", help="Keep current persona active (diary written in persona's voice)")

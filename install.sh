@@ -98,13 +98,21 @@ if [ -n "$profiles_repo" ]; then
   if [ -d "$PROFILES_DIR" ]; then
     for d in "$PROFILES_DIR"/personas/*/; do
       [ -d "$d" ] || continue
+      d="${d%/}"
       name="$(basename "$d")"
+      if [ -d "$INSTALL_DIR/personas/$name" ] && [ ! -L "$INSTALL_DIR/personas/$name" ]; then
+        rm -rf "$INSTALL_DIR/personas/$name"
+      fi
       ln -sfn "$d" "$INSTALL_DIR/personas/$name"
       echo "  Linked persona: $name"
     done
     for d in "$PROFILES_DIR"/roles/*/; do
       [ -d "$d" ] || continue
+      d="${d%/}"
       name="$(basename "$d")"
+      if [ -d "$INSTALL_DIR/roles/$name" ] && [ ! -L "$INSTALL_DIR/roles/$name" ]; then
+        rm -rf "$INSTALL_DIR/roles/$name"
+      fi
       ln -sfn "$d" "$INSTALL_DIR/roles/$name"
       echo "  Linked role: $name"
     done
@@ -141,6 +149,8 @@ echo ">> Appending new bootstrapper aliases to $BASHRC_PATH..."
     p="$(prefix_for "$e")"
     echo "alias ${p}sample='python3 $RUNNER --engine $e --persona sample --role programmer$YOLO_FLAG'"
     echo "alias ${p}samplec='python3 $RUNNER --engine $e --persona sample --role programmer -c$YOLO_FLAG'"
+    echo "alias ${p}kaze='python3 $RUNNER --engine $e --persona yukikaze_future --role programmer$YOLO_FLAG'"
+    echo "alias ${p}kazec='python3 $RUNNER --engine $e --persona yukikaze_future --role programmer -c$YOLO_FLAG'"
     echo "alias ${p}reset='python3 $RUNNER --engine $e --reset$YOLO_FLAG'"
     echo "${p}p() {"
     echo "  python3 $RUNNER --engine $e --persona \"\${1:-sample}\" --role \"\${2:-programmer}\" \"\${@:3}\"$YOLO_FLAG"
