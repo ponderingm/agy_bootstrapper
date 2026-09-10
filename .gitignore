@@ -16,3 +16,6 @@ Thumbs.db
 
 # Test profiles & temporary output files
 GEMINI_test.md
+
+# Private profiles repo cloned by install.sh --profiles-repo=owner/repo
+.profiles/

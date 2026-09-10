@@ -16,6 +16,7 @@ echo "==============================================="
 # Parse arguments
 yolo_mode=""
 engines=""
+profiles_repo=""
 for arg in "$@"; do
   case $arg in
     --yolo)
@@ -27,9 +28,12 @@ for arg in "$@"; do
     --engine=*)
       engines="${arg#--engine=}"
       ;;
+    --profiles-repo=*)
+      profiles_repo="${arg#--profiles-repo=}"
+      ;;
     *)
       echo "Unknown option: $arg"
-      echo "Usage: $0 [--yolo | --no-yolo] [--engine=agy,copilot,claude|all]"
+      echo "Usage: $0 [--yolo | --no-yolo] [--engine=agy,copilot,claude|all] [--profiles-repo=owner/repo]"
       exit 1
       ;;
   esac
@@ -76,6 +80,37 @@ else
   echo ">> Standard mode enabled (permission prompts will be shown)."
 fi
 
+# Optional: clone a private "profiles" repo and symlink its personas/roles
+# into place. See README.md "Private Profiles" for the expected layout.
+# Once linked, run_partner.py auto-detects and syncs these paths on every run
+# (git pull before, commit+push after) -- no further config needed here.
+if [ -n "$profiles_repo" ]; then
+  PROFILES_DIR="$INSTALL_DIR/.profiles"
+  echo ">> Setting up private profiles from $profiles_repo..."
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "  Warning: gh (GitHub CLI) not found; skipping private profiles setup."
+  elif [ -d "$PROFILES_DIR/.git" ]; then
+    echo "  Profiles already cloned: $PROFILES_DIR"
+  elif ! gh repo clone "$profiles_repo" "$PROFILES_DIR"; then
+    echo "  Warning: failed to clone $profiles_repo; skipping private profiles setup."
+  fi
+
+  if [ -d "$PROFILES_DIR" ]; then
+    for d in "$PROFILES_DIR"/personas/*/; do
+      [ -d "$d" ] || continue
+      name="$(basename "$d")"
+      ln -sfn "$d" "$INSTALL_DIR/personas/$name"
+      echo "  Linked persona: $name"
+    done
+    for d in "$PROFILES_DIR"/roles/*/; do
+      [ -d "$d" ] || continue
+      name="$(basename "$d")"
+      ln -sfn "$d" "$INSTALL_DIR/roles/$name"
+      echo "  Linked role: $name"
+    done
+  fi
+fi
+
 # Remove old blocks if they exist (including legacy copilot block)
 if [ -f "$BASHRC_PATH" ]; then
   echo ">> Cleaning old configurations in $BASHRC_PATH..."
@@ -118,6 +153,9 @@ echo "==============================================="
 echo " Installation Complete!"
 echo " Please run: source ~/.bashrc"
 echo " Installed engines: $engines"
+if [ -n "$profiles_repo" ]; then
+  echo " Private profiles: $profiles_repo"
+fi
 echo " Commands (per engine prefix: agy / cop / cld):"
 echo "   <prefix>sample   - Start a fresh partner session"
 echo "   <prefix>samplec  - Resume last partner session"
