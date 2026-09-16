@@ -14,6 +14,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -153,6 +154,64 @@ def _push_profile_repos(git_roots):
             print(f"[sync] warning: push failed for {root}:\n{push_result.stderr}", file=sys.stderr)
 
 
+def _ensure_profiles_symlinks(base_dir):
+    """Auto-link personas and roles from .profiles into personas/ and roles/.
+
+    If a role or persona exists in .profiles but is not yet symlinked in base_dir
+    (e.g. on another machine after pulling changes), this replaces the local
+    directory with a symlink and sets git skip-worktree on tracked files.
+    """
+    profiles_dir = os.path.join(base_dir, ".profiles")
+    if not os.path.isdir(profiles_dir):
+        return
+
+    # 1. Auto-link personas
+    profiles_personas = os.path.join(profiles_dir, "personas")
+    if os.path.isdir(profiles_personas):
+        for name in os.listdir(profiles_personas):
+            target = os.path.join(profiles_personas, name)
+            if not os.path.isdir(target):
+                continue
+            local = os.path.join(base_dir, "personas", name)
+            if not os.path.islink(local):
+                if os.path.isdir(local):
+                    shutil.rmtree(local)
+                os.symlink(target, local)
+                print(f"[sync] auto-linked persona from profiles: {name}")
+
+    # 2. Auto-link roles
+    profiles_roles = os.path.join(profiles_dir, "roles")
+    if os.path.isdir(profiles_roles):
+        for name in os.listdir(profiles_roles):
+            target = os.path.join(profiles_roles, name)
+            if not os.path.isdir(target):
+                continue
+            local = os.path.join(base_dir, "roles", name)
+            if not os.path.islink(local):
+                # Ignore tracked files so base git status stays clean
+                res = subprocess.run(
+                    ["git", "ls-files", f"roles/{name}"],
+                    cwd=base_dir, capture_output=True, text=True
+                )
+                for tf in res.stdout.splitlines():
+                    subprocess.run(
+                        ["git", "update-index", "--skip-worktree", tf],
+                        cwd=base_dir, capture_output=True
+                    )
+                exclude_file = os.path.join(base_dir, ".git", "info", "exclude")
+                if os.path.isfile(exclude_file):
+                    with open(exclude_file, "a+", encoding="utf-8") as ef:
+                        ef.seek(0)
+                        content = ef.read()
+                        entry = f"roles/{name}\n"
+                        if entry not in content:
+                            ef.write(f"\n{entry}")
+                if os.path.isdir(local):
+                    shutil.rmtree(local)
+                os.symlink(target, local)
+                print(f"[sync] auto-linked role from profiles: {name}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Unified AI Partner Bootstrapper (agy / copilot / claude)")
     parser.add_argument("--engine", type=str, choices=sorted(ENGINES.keys()), default="agy",
@@ -210,6 +269,7 @@ def main():
         # before reading anything, so memories.md etc. reflect other machines.
         profile_git_roots = _collect_profile_git_roots(base_dir, persona_dir, role_dir)
         _pull_profile_repos(profile_git_roots)
+        _ensure_profiles_symlinks(base_dir)
 
         # 1. Load Persona JSON (SillyTavern Card V2)
         if not os.path.exists(persona_path):
@@ -305,11 +365,17 @@ def main():
             roles_root = os.path.join(base_dir, "roles")
 
             # 1. Clean up: remove symlinks that point into any role's skills dir
+            # Check both base roles/ and any symlinked roles (e.g. in .profiles/roles/)
+            cleanup_roots = [os.path.realpath(roles_root)]
+            profiles_roles = os.path.join(base_dir, ".profiles", "roles")
+            if os.path.exists(profiles_roles):
+                cleanup_roots.append(os.path.realpath(profiles_roles))
+
             for entry in os.listdir(global_skills_dir):
                 entry_path = os.path.join(global_skills_dir, entry)
                 if os.path.islink(entry_path):
                     target = os.path.realpath(entry_path)
-                    if target.startswith(os.path.realpath(roles_root)):
+                    if any(target.startswith(r) for r in cleanup_roots):
                         os.unlink(entry_path)
                         print(f"  Removed stale role skill: {entry}")
 
@@ -324,6 +390,8 @@ def main():
                         with open(skill_md) as f:
                             if "No skills learned yet" in f.read():
                                 continue
+                    if os.path.islink(link_path) or os.path.exists(link_path):
+                        os.unlink(link_path)
                     os.symlink(os.path.abspath(skill_subdir.rstrip("/")), link_path)
                     print(f"  Registered global skill: {skill_name}")
 
