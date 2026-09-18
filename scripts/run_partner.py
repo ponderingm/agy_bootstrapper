@@ -72,7 +72,7 @@ ENGINES = {
         "label": "Antigravity CLI",
         "command": "agy",
         "instructions_path": "~/.gemini/GEMINI.md",
-        "yolo_flag": "--dangerously-skip-permissions",
+        "yolo_flag": ["--dangerously-skip-permissions"],
         "continue_flag": "-c",
         "global_skills_dir": "~/.agents/skills",
     },
@@ -80,7 +80,7 @@ ENGINES = {
         "label": "GitHub Copilot CLI",
         "command": "copilot",
         "instructions_path": "~/.copilot/copilot-instructions.md",
-        "yolo_flag": "--yolo",
+        "yolo_flag": ["--yolo"],
         "continue_flag": "--continue",
         "global_skills_dir": "~/.copilot/skills",
     },
@@ -88,7 +88,7 @@ ENGINES = {
         "label": "Claude Code",
         "command": "claude",
         "instructions_path": "~/.claude/CLAUDE.md",
-        "yolo_flag": "--dangerously-skip-permissions",
+        "yolo_flag": ["--permission-mode", "auto"],
         "continue_flag": "--continue",
         "global_skills_dir": "~/.claude/skills",
     },
@@ -413,7 +413,7 @@ def main():
 
     cmd = [engine["command"]]
     if args.yolo:
-        cmd.append(engine["yolo_flag"])
+        cmd.extend(engine["yolo_flag"])
     if args.continue_session:
         cmd.append(engine["continue_flag"])
 
