@@ -153,7 +153,7 @@ echo ">> Appending new bootstrapper aliases to $BASHRC_PATH..."
     echo "alias ${p}kazec='python3 $RUNNER --engine $e --persona yukikaze_future --role programmer -c$YOLO_FLAG'"
     echo "alias ${p}reset='python3 $RUNNER --engine $e --reset$YOLO_FLAG'"
     echo "${p}p() {"
-    echo "  python3 $RUNNER --engine $e --persona \"\${1:-sample}\" --role \"\${2:-programmer}\" \"\${@:3}\"$YOLO_FLAG"
+    echo "  python3 $RUNNER --engine $e --persona \"\${1:-yukikaze_future}\" --role \"\${2:-programmer}\" \"\${@:3}\"$YOLO_FLAG"
     echo "}"
   done
   echo "# === AGY BOOTSTRAPPER END ==="

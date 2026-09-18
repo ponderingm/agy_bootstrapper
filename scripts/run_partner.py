@@ -216,7 +216,7 @@ def main():
     parser = argparse.ArgumentParser(description="Unified AI Partner Bootstrapper (agy / copilot / claude)")
     parser.add_argument("--engine", type=str, choices=sorted(ENGINES.keys()), default="agy",
                         help="Target CLI engine (default: agy)")
-    parser.add_argument("--persona", type=str, required=False, help="Name of the persona (personas/{name}/profile.json)")
+    parser.add_argument("--persona", type=str, required=False, default="yukikaze_future", help="Name of the persona (personas/{name}/profile.json, default: yukikaze_future)")
     parser.add_argument("--role", type=str, required=False, help="Name of the role (roles/{name}/role.md)")
     parser.add_argument("--instructions-path", "--gemini-md", dest="instructions_path", type=str, default=None,
                         help="Override the engine-default instructions output path")
