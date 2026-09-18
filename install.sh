@@ -5,8 +5,14 @@
 set -e
 
 INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASHRC_PATH="$HOME/.bashrc"
 RUNNER="$INSTALL_DIR/scripts/run_partner.py"
+
+# Target the rc file for the user's actual login shell, not always bash
+# (zsh does not source ~/.bashrc, so aliases would silently never load).
+case "$SHELL" in
+  */zsh) RC_PATH="$HOME/.zshrc" ;;
+  *) RC_PATH="$HOME/.bashrc" ;;
+esac
 
 echo "==============================================="
 echo " Installing AI Partner Bootstrapper (Unified)"
@@ -120,14 +126,14 @@ if [ -n "$profiles_repo" ]; then
 fi
 
 # Remove old blocks if they exist (including legacy copilot block)
-if [ -f "$BASHRC_PATH" ]; then
-  echo ">> Cleaning old configurations in $BASHRC_PATH..."
-  TEMP_BASHRC=$(mktemp)
+if [ -f "$RC_PATH" ]; then
+  echo ">> Cleaning old configurations in $RC_PATH..."
+  TEMP_RC=$(mktemp)
   sed -e '/# === AGY BOOTSTRAPPER START ===/,/# === AGY BOOTSTRAPPER END ===/d' \
       -e '/# === AGY BOOTSTRAPPER (COPILOT) START ===/,/# === AGY BOOTSTRAPPER (COPILOT) END ===/d' \
-      "$BASHRC_PATH" > "$TEMP_BASHRC"
-  cat "$TEMP_BASHRC" > "$BASHRC_PATH"
-  rm -f "$TEMP_BASHRC"
+      "$RC_PATH" > "$TEMP_RC"
+  cat "$TEMP_RC" > "$RC_PATH"
+  rm -f "$TEMP_RC"
 fi
 
 # Alias prefix per engine: agy -> agy*, copilot -> cop*, claude -> cld*
@@ -139,8 +145,8 @@ prefix_for() {
   esac
 }
 
-# Append new shortcuts block to .bashrc
-echo ">> Appending new bootstrapper aliases to $BASHRC_PATH..."
+# Append new shortcuts block to the rc file
+echo ">> Appending new bootstrapper aliases to $RC_PATH..."
 {
   echo ""
   echo "# === AGY BOOTSTRAPPER START ==="
@@ -157,11 +163,11 @@ echo ">> Appending new bootstrapper aliases to $BASHRC_PATH..."
     echo "}"
   done
   echo "# === AGY BOOTSTRAPPER END ==="
-} >> "$BASHRC_PATH"
+} >> "$RC_PATH"
 
 echo "==============================================="
 echo " Installation Complete!"
-echo " Please run: source ~/.bashrc"
+echo " Please run: source $RC_PATH"
 echo " Installed engines: $engines"
 if [ -n "$profiles_repo" ]; then
   echo " Private profiles: $profiles_repo"
